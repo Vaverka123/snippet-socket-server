@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snippets Client</title>
+  </head>
+  <body>
+    <h1>Snippets from API</h1>
+    <button onclick="getSnippets()">Get Snippets</button>
+    <pre id="output">Waiting for data...</pre>
+
+    <!-- Load Socket.IO client library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      // Connect to your server
+      const socket = io();
+
+      // Handle snippets response
+      socket.on("snippetsResponse", (snippets) => {
+        document.getElementById("output").textContent = JSON.stringify(
+          snippets,
+          null,
+          2
+        );
+      });
+
+      // Handle errors
+      socket.on("error", (message) => {
+        document.getElementById("output").textContent = `Error: ${message}`;
+      });
+
+      // Function to request snippets
+      function getSnippets() {
+        socket.emit("getSnippets");
+      }
+    </script>
+  </body>
+</html>
