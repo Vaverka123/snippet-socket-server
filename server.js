@@ -4,43 +4,78 @@ const server = require("http").createServer(app);
 const io = require("socket.io")(server);
 const fetch = require("node-fetch");
 
-// Serve a simple webpage for testing (optional, see Step 4)
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
-});
+console.log("node-fetch loaded:", typeof fetch);
 
 // Handle Socket.IO connections
 io.on("connection", (socket) => {
   console.log("A client connected:", socket.id);
 
-  // Listen for 'getSnippets' event from client
-  socket.on("getSnippets", async () => {
+  // Auto-fetch on connect
+  (async () => {
     try {
-      // Make HTTP request to the REST API
+      console.log("Auto-fetch starting for client:", socket.id);
       const response = await fetch("https://codelang.vercel.app/api/snippets");
-
-      // Check if response is OK
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
-
-      // Parse JSON data
-      const snippets = await response.json();
-
-      // Send data back to client
+      const apiResponse = await response.json();
+      const snippets = apiResponse.data?.data || [];
+      console.log("Auto-fetch snippets count:", snippets.length);
+      if (!Array.isArray(snippets)) {
+        throw new Error("API response data.data is not an array");
+      }
       socket.emit("snippetsResponse", snippets);
     } catch (error) {
-      // Send error message to client
+      console.error("Auto-fetch error:", error.message);
       socket.emit("error", `Failed to fetch snippets: ${error.message}`);
-      console.error("Error:", error);
+    }
+  })();
+
+  // Manual getSnippets
+  socket.on("getSnippets", async () => {
+    try {
+      console.log("Manual fetch starting for client:", socket.id);
+      const response = await fetch("https://codelang.vercel.app/api/snippets");
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const apiResponse = await response.json();
+      const snippets = apiResponse.data?.data || [];
+      console.log("Manual fetch snippets count:", snippets.length);
+      if (!Array.isArray(snippets)) {
+        throw new Error("API response data.data is not an array");
+      }
+      socket.emit("snippetsResponse", snippets);
+    } catch (error) {
+      console.error("Manual fetch error:", error.message);
+      socket.emit("error", `Failed to fetch snippets: ${error.message}`);
     }
   });
 
-  // Log when client disconnects
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });
 });
+
+// Periodic updates: Fetch every 5 seconds
+setInterval(async () => {
+  try {
+    console.log("Periodic fetch starting...");
+    const response = await fetch("https://codelang.vercel.app/api/snippets");
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    const apiResponse = await response.json();
+    const snippets = apiResponse.data?.data || [];
+    console.log("Periodic snippets count:", snippets.length);
+    if (!Array.isArray(snippets)) {
+      throw new Error("API response data.data is not an array");
+    }
+    io.emit("snippetsResponse", snippets); // Broadcast to all clients
+  } catch (error) {
+    console.error("Periodic fetch error:", error.message);
+  }
+}, 5000);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
